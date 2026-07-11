@@ -25,6 +25,9 @@ if (-not (Test-Administrator)) {
 	Start-Process -Wait -Verb RunAs powershell.exe -ArgumentList $adminScript
 }
 
+# Install vs code early
+winget install -e --id Microsoft.VisualStudioCode
+
 if ($AdminOnly) {
 	# Switch local machine policy
 	Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine
@@ -128,7 +131,7 @@ pinentry-mode loopback
 	exit 0
 }
 
-[System.Environment]::SetEnvironmentVariable('EDITOR', 'nvim', [System.EnvironmentVariableTarget]::User)
+[System.Environment]::SetEnvironmentVariable('EDITOR', 'code', [System.EnvironmentVariableTarget]::User)
 
 # Install scoop
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
