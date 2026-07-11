@@ -9,7 +9,7 @@ $goVersion = "1.26.0"
 $ompTheme = "multiverse-neon"
 
 # The location of this config depot
-$DepotURL = "git@github.com:mendsley/config"
+$DepotURL = "git@github.com:paulhazen/config"
 
 # Check if we're running as administrator
 function Test-Administrator {
