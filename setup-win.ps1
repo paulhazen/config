@@ -8,6 +8,9 @@ $goupVersion = "1.7.0"
 $goVersion = "1.26.0"
 $ompTheme = "multiverse-neon"
 
+# The location of this config depot
+$DepotURL = "git@github.com:mendsley/config"
+
 # Check if we're running as administrator
 function Test-Administrator {
 	$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -328,9 +331,9 @@ $claudeSettings | ConvertTo-Json -Depth 10 | Set-Content -Path $claudeSettingsPa
 
 # Replace origin with SSH remote (if needed)
 $originUrl = git remote get-url origin 2>$null
-if ($originUrl -ne "git@github.com:mendsley/config") {
+if ($originUrl -ne $DepotURL) {
 	git remote rm origin
-	git remote add origin git@github.com:mendsley/config
+	git remote add origin $DepotURL
 }
 
 $gitVimPath = "$env:GIT_INSTALL_ROOT\usr\bin\vim.exe"
