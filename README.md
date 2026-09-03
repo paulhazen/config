@@ -22,7 +22,7 @@ Windows, macOS, and Linux.
 | `packages.json` | Shared package manifest (scoop names, with `brew`/`brew_cask` mappings and `mac_extras`) | both installers |
 | `install.config.json` | Selects which components and packages the installers actually install | read by Windows + macOS installers |
 | `.gitconfig` | Core Git config: aliases, LFS (identity/signing live in generated `~/.gitconfig-user`) | Windows admin phase, macOS, Linux |
-| `.gitconfig-windows` | Windows-only Git config: GPG path, Beyond Compare diff/merge | Windows admin phase (included from `.gitconfig`) |
+| `.gitconfig-windows` | Windows-only Git config: OpenSSH command, VS Code diff/merge | Windows admin phase (included from `.gitconfig`) |
 | `.gitconfig-mac` | macOS-only Git config: LFS, Beyond Compare diff/merge | macOS (included from `.gitconfig`) |
 | `ssh_config` | Becomes your entire `~/.ssh/config` | all three |
 | `.zshrc` | zsh config: oh-my-zsh, GPG-agent-as-SSH-agent, eza/bat aliases, goenv | macOS only |
@@ -41,8 +41,15 @@ installers do. `components` holds per-feature booleans (a missing key defaults
 to `true`, and a missing file installs everything), and `packages.exclude`
 lists package names from `packages.json` to skip. Each component is described
 in the file's own `_documentation.component_reference`. Edit it before running
-an installer — it is the supported way to opt out of the personal package
+an installer — it is the supported way to opt in or out of the package
 choices and surprising behaviors listed later in this document.
+
+The committed defaults encode the repo owner's preferences: Windows-centric,
+VS Code as editor (Neovim config off), no GPG/commit-signing machinery
+(standard OpenSSH agent), Go/Node/Python toolchains (no .NET), oh-my-posh
+prompt and fzf keybindings but no eza/bat aliases (`cli_aliases` off), origin
+re-pointing and Git-exe cleanup off, and the original author's personal apps
+excluded. Delete the file to install absolutely everything.
 
 The installers also prompt for values that are yours rather than the repo's:
 Git `user.name`, `user.email`, and whether to GPG-sign commits. Answers are
@@ -136,15 +143,16 @@ running an installer.
 
 ### Signing, GPG, and SSH-agent workflow
 
-The whole config assumes the original author's **GPG-key-backed workflow**
-(likely with a YubiKey — `yubioath` is in the package list):
+The original author used a **GPG-key-backed workflow** (likely with a
+YubiKey). The default configuration now disables all of it (`gpg` component
+off, `gpg4win`/`yubioath` excluded) in favor of the standard OpenSSH agent and
+unsigned commits; the machinery remains available behind the `gpg` component:
 
 | File | Setting | Why it may not be portable |
 |---|---|---|
 | `.gitconfig` | `[commit] gpgsign` | Prompted at install time (default: no) and written to `~/.gitconfig-user`. Answer yes only once you have a GPG key configured, or commits fail. |
-| `.gitconfig-windows` | `[gpg] program = ~/scoop/apps/gpg4win/current/GnuPG/bin/gpg.exe` | Assumes gpg4win installed via scoop at that exact path. |
-| `.zshrc` (macOS) | `SSH_AUTH_SOCK` from `gpgconf`, `gpg-connect-agent /bye` | gpg-agent replaces your SSH agent on every shell start. If you use plain `ssh-agent`, 1Password, or Keychain-based SSH, remove this block. |
-| `setup-win.ps1` / `setup.sh` / `setup-mac.sh` | gpg-agent config, logon task, gnome-keyring SSH disable | Same workflow assumption on each OS. |
+| `.zshrc` (macOS) | `SSH_AUTH_SOCK` from `gpgconf`, `gpg-connect-agent /bye` | gpg-agent replaces your SSH agent on every shell start. Because of this, `setup-mac.sh` on a Mac without gnupg installed rejects the Windows-oriented defaults — re-enable `gpg` and un-exclude `gpg4win` there. |
+| `setup-win.ps1` / `setup.sh` / `setup-mac.sh` | gpg-agent config, logon task, gnome-keyring SSH disable | Same workflow assumption on each OS; all behind the `gpg` component. |
 | `ssh_config` | (nearly empty) | Installed as your **entire** `~/.ssh/config`, deleting whatever you had. Merge your own hosts into this file before running an installer. |
 
 ### Employer- and workflow-specific Git settings
@@ -154,20 +162,21 @@ The whole config assumes the original author's **GPG-key-backed workflow**
 | `.gitconfig` | `[credential "https://lfscache.office.playeveryware.com"] provider = github` | PlayEveryWare's internal Git LFS cache. Harmless elsewhere, but remove it if this config leaves the org. |
 | `.gitconfig` | alias `lpm` (`remotes/p4/master..`) | Assumes a git-p4 (Perforce) remote named `p4`. |
 | `.gitconfig` | alias `svu` | git-svn helper against `origin/master`. Dead weight without SVN. |
-| `.gitconfig-windows` / `.gitconfig-mac` | `[merge]`/`[diff] tool = bc3` (`BComp.exe` / `bcomp`) | Requires a licensed **Beyond Compare** install. Change to your own diff/merge tool if you don't have one. |
+| `.gitconfig-windows` | `[merge]`/`[diff] tool = vscode` | Diff/merge via `code --wait`; requires VS Code on PATH (the `vscode` component installs it). |
+| `.gitconfig-mac` | `[merge]`/`[diff] tool = bc3` (`bcomp`) | Still the original Beyond Compare setup (paid license); change if you ever set up a Mac. |
 
 ### Personal package and tool choices (`packages.json`, `setup-win.ps1`)
 
-Things the original author uses that you may not want installed:
+Things the original author uses that are now **excluded by the default
+`install.config.json`** (remove them from `packages.exclude` to get them back):
 
-- **Personal scoop buckets** added by `setup-win.ps1`:
-  `dicklesworthstone` (for `bv`) and `mendsley` — the original author's own
-  bucket (for `bd`/beads). Remove the `scoop bucket add` lines and the
-  `dicklesworthstone/bv` / `mendsley/bd` entries if you don't use those tools.
-- **Personal apps** in `packages.json`: `gnucash` (personal finance), `winrar`,
-  `marktext`, `p4v` (Perforce client), `versions/beyondcompare4`,
-  `yubioath` (YubiKey), and `openvpn` (installed **globally** as an
-  admin package).
+- **Personal-bucket tools**: `dicklesworthstone/bv` and `mendsley/bd`. The
+  `scoop bucket add` lines for those two buckets still run (harmlessly) when
+  the `packages` component is enabled.
+- **Personal apps**: `gnucash` (personal finance), `winrar`, `marktext`,
+  `p4v` (Perforce client), `versions/beyondcompare4`, `yubioath` (YubiKey),
+  `alacritty`, `dotnet-sdk`, and `openvpn` (an admin package installed
+  globally when not excluded).
 - **Pinned versions** at the top of `setup-win.ps1`: `$goupVersion`,
   `$goVersion` (note: the goup download URL hardcodes `v1.7.0` regardless of
   the variable), and `$ompTheme` (also effectively hardcoded — line ~257 embeds
@@ -176,8 +185,9 @@ Things the original author uses that you may not want installed:
 ### Look-and-feel choices
 
 - `setup-win.ps1` forces Windows Terminal to pwsh + MesloLGM Nerd Font and
-  manages a block of your pwsh profile (oh-my-posh `multiverse-neon`, eza/bat
-  aliases); anything you add outside the marked block is left alone.
+  manages a block of your pwsh profile (oh-my-posh `multiverse-neon`, fzf
+  keybindings, plus eza/bat aliases only when `cli_aliases` is enabled);
+  anything you add outside the marked block is left alone.
 - `.zshrc` hardcodes Apple Silicon Homebrew paths (`/opt/homebrew/...`) —
   Intel Macs use `/usr/local` and will need edits. Theme is `af-magic`;
   `EDITOR=nvim` (Windows sets `EDITOR=code` instead).

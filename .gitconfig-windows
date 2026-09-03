@@ -1,17 +1,15 @@
 [core]
 	sshcommand = C:/Windows/System32/OpenSSH/ssh.exe
-[gpg]
-	program = ~/scoop/apps/gpg4win/current/GnuPG/bin/gpg.exe
 [merge]
-	tool = bc3
+	tool = vscode
 	defaultToUpstream = true
-[mergetool "bc3"]
-	cmd = BComp.exe \"$LOCAL\" \"$REMOTE\" \"$BASE\" \"$MERGED\"
-	trustExitCode = true
+[mergetool "vscode"]
+	cmd = code --wait --merge \"$REMOTE\" \"$LOCAL\" \"$BASE\" \"$MERGED\"
+	trustExitCode = false
 [diff]
-	tool = bc3
-[difftool "bc3"]
-	cmd = BComp.exe \"$LOCAL\" \"$REMOTE\"
+	tool = vscode
+[difftool "vscode"]
+	cmd = code --wait --diff \"$LOCAL\" \"$REMOTE\"
 [mergetool]
 	keepbackup = false
 	keeptemporaries = false
