@@ -1,0 +1,86 @@
+#!/bin/sh
+#
+# Agent policy: refuse pushes that would update a protected branch.
+#
+# This hook is agent-agnostic. It inspects the refs Git is actually about to
+# update rather than the text of the command, so it cannot be evaded by
+# rephrasing the push. It applies equally to every agent and to human users.
+#
+# It does not attempt to distinguish --force from --force-with-lease: Git does
+# not expose that distinction to this hook. Rewriting an agent's own branch is
+# permitted by policy, so only protected branches are refused here.
+#
+# Bypassing with --no-verify is possible. This hook defends against mistakes,
+# not against a determined process. Server-side branch protection is the only
+# boundary a local agent does not control.
+#
+# The protected branch list is generated into policy.env beside this hook
+# during synchronization. The hook carries no built-in fallback: protecting a
+# hardcoded guess at the branch list would appear to work while leaving the
+# branches this project actually protects exposed.
+
+set -eu
+
+hooks_dir=$(dirname "$0")
+env_file="$hooks_dir/policy.env"
+
+if [ ! -f "$env_file" ]; then
+    echo "agent-policy: generated configuration is missing." >&2
+    echo "agent-policy: expected $env_file" >&2
+    echo "" >&2
+    echo "Run the policy synchronization script to regenerate it, then push" >&2
+    echo "again. Refusing the push rather than enforcing an outdated policy." >&2
+    exit 1
+fi
+
+# shellcheck source=/dev/null
+. "$env_file"
+
+: "${PROTECTED_BRANCHES:=}"
+
+zero_sha=$(printf '%040d' 0)
+
+violation=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+
+    # Ignore deletions of non-branch refs and malformed input.
+    case "$remote_ref" in
+        refs/heads/*) branch=${remote_ref#refs/heads/} ;;
+        *) continue ;;
+    esac
+
+    for protected in $PROTECTED_BRANCHES; do
+        if [ "$branch" = "$protected" ]; then
+
+            if [ "$local_sha" = "$zero_sha" ]; then
+                action="delete"
+            else
+                action="update"
+            fi
+
+            echo "agent-policy: refusing to $action protected branch '$branch'." >&2
+            violation=1
+        fi
+    done
+
+    # Silence unused-variable warnings from shells that check them.
+    : "$local_ref" "$remote_sha"
+done
+
+if [ "$violation" -ne 0 ]; then
+    cat >&2 <<'EOF'
+
+Protected branches are updated only through a pull request merged by a human.
+
+To submit this work:
+
+    git switch --create <agent-prefix>/<type>/<description>
+    git push --set-upstream origin <branch>
+    gh pr create
+
+EOF
+    exit 1
+fi
+
+exit 0

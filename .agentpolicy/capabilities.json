@@ -1,0 +1,56 @@
+{
+  "_documentation": {
+    "purpose": "Declares the capabilities agents may use in THIS project. Project-owned: synchronization creates it once and never overwrites it.",
+
+    "grantKinds": {
+      "tool": "Names commands an agent may invoke. Requires 'commands'. A command is matched as a PREFIX, so it may name a subcommand or a whole invocation. Optionally add 'entrypoint' to name one of this project's own scripts, and 'mutates' to state whether running it changes anything outside the repository.",
+      "path": "Names filesystem locations an agent may reach. Requires 'paths' and an 'access' of 'read' or 'write'.",
+      "mcp": "Names Model Context Protocol tools an agent may call. Requires 'tools', each written in full as 'mcp__<server>__<tool>'. Any other shape is rejected, because an MCP name reaches the generated allow list verbatim."
+    },
+
+    "grantNarrowly": [
+      "A 'tool' command is matched as a prefix, so grant the narrowest prefix that still permits the work.",
+      "Granting a bare interpreter such as a shell or a scripting runtime grants arbitrary code execution. If the reason for the grant is three of this project's own scripts, name those three invocations instead.",
+      "Write the command exactly as the agent will type it. A grant of the runtime alone does not match an invocation written some other way, and the agent then has to guess how to rephrase it.",
+      "Where a granted command runs one of this project's scripts, name that script in 'entrypoint'. Verification then reports a script that has been renamed or deleted, instead of a grant that silently permits a command which can no longer run.",
+      "A grant with an 'entrypoint' is also published into the project tooling inventory in this project's agent instruction file, so every agent sees the same list. Use 'description' to say what the task is for and what its failure means."
+    ],
+
+    "precedence": [
+      "Rules forbidden by the central policy always override a grant here.",
+      "This project may add its own 'forbid' entries. Tightening is always permitted.",
+      "A grant that reaches a centrally managed policy path is rejected at synchronization time.",
+      "This file is itself a managed policy path, so an agent cannot widen its own authority without a human commit."
+    ],
+
+    "whatAGrantIsNot": [
+      "A grant declares intent. It does not install a tool, mount a share, or confer any operating-system permission.",
+      "Read-only is not enforced by the generated agent configuration. Any granted shell command runs with the user's own operating-system permissions and can write wherever the operating system allows.",
+      "'mutates' is this project's own claim and nothing enforces it. It is published so a reader knows which tasks are expected to change a live system.",
+      "'entrypoint' confers no access. It is checked for existence and printed in the inventory; the 'commands' prefixes remain the whole granted surface.",
+      "Enforce read-only at the mount or access-control list. Run ./.agentpolicy/verify-capabilities.ps1 to report where a declaration and the operating system disagree.",
+      "Declare locations, never credentials. Secrets belong in the credential store this organization uses, not in this file."
+    ],
+
+    "example": [
+      {
+        "id": "example-project-task",
+        "kind": "tool",
+        "commands": ["<runtime-name> <relative-script-path>"],
+        "entrypoint": "<relative-script-path>",
+        "mutates": false,
+        "description": "What this task is for, and what a failure means."
+      },
+      { "id": "example-tools", "kind": "tool", "commands": ["<executable-name>"] },
+      { "id": "example-read-location", "kind": "path", "access": "read", "paths": ["<absolute-or-unc-path>"] },
+      { "id": "example-write-location", "kind": "path", "access": "write", "paths": ["<absolute-or-unc-path>"] },
+      { "id": "example-mcp-tools", "kind": "mcp", "tools": ["mcp__<server-name>__<tool-name>"] }
+    ],
+
+    "removeThisKey": "The _documentation key is ignored by the emitters. Delete it once this file is filled in."
+  },
+
+  "grant": [],
+
+  "forbid": []
+}
