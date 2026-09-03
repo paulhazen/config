@@ -1,0 +1,7 @@
+{
+  "repository": "paulhazen/agentic",
+  "version": "latest",
+  "agent": "Claude",
+  "policyMutationMode": "never",
+  "policyMutationToken": null
+}

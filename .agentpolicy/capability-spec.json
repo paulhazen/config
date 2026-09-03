@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 2,
+
+  "protectedBranches": [
+    "main"
+  ],
+
+  "policyFiles": [
+    ".agentpolicy/",
+    "dev/policy-src/"
+  ],
+
+  "policyFileExemptions": [
+    ".agentpolicy/testing.md",
+    ".agentpolicy/config.json",
+    ".agentpolicy/capabilities.json"
+  ],
+
+  "projectCapabilities": {
+    "file": ".agentpolicy/capabilities.json",
+    "precedence": [
+      "A project may declare grants and may add its own forbid rules.",
+      "Rules forbidden here always override a project grant.",
+      "A project may not grant access to any path listed in policyFiles, which is why the project capability file is itself listed there: an agent must not be able to widen its own authority by granting itself write access to the file that records its authority.",
+      "That file is exempt from the commit hook, because a project cannot install this policy without committing the grants it declares. Widening is restrained instead by the write deny in generated agent configuration and by server-side code ownership on the policy paths. A commit hook cannot tell a human from an agent, so refusing the commit only obstructed the human the rule was written to serve.",
+      "Tightening is always permitted. Widening beyond what this specification allows is not."
+    ],
+    "grantKinds": {
+      "tool": "Names commands an agent may invoke, matched as a prefix. Optionally declares 'entrypoint', one of the project's own scripts the command runs, and 'mutates', whether the task changes anything outside the repository. Declares intent; it does not install anything or confer operating-system permission.",
+      "path": "Names filesystem locations an agent may reach, with 'access' of 'read' or 'write'. Declares intent; the operating system is what actually enforces it.",
+      "mcp": "Names Model Context Protocol tools an agent may call, each written in full as 'mcp__<server>__<tool>'. Any other shape is rejected, because the name reaches the generated allow list verbatim."
+    }
+  },
+
+  "forbid": [
+    {
+      "id": "push-protected-branch",
+      "kind": "git-push",
+      "targets": "@protectedBranches",
+      "description": "Agents must never push directly to a protected branch. Changes reach a protected branch only through a pull request merged by a human."
+    },
+    {
+      "id": "plain-force-push",
+      "kind": "command",
+      "patterns": [
+        "git push --force",
+        "git push -f"
+      ],
+      "description": "History rewriting on an agent's own branch is permitted, but only through --force-with-lease."
+    },
+    {
+      "id": "mutate-protected-branch",
+      "kind": "git-mutate",
+      "targets": "@protectedBranches",
+      "description": "Agents must not commit to, merge into, reset, or rewrite a protected branch locally."
+    },
+    {
+      "id": "write-policy-files",
+      "kind": "file-write",
+      "paths": "@policyFiles",
+      "requiresPolicyMutation": true,
+      "description": "Centrally managed policy infrastructure changes originate from the policy repository and arrive through synchronization, unless policy mutation is authorized."
+    },
+    {
+      "id": "modify-global-git-identity",
+      "kind": "command",
+      "patterns": [
+        "git config --global"
+      ],
+      "description": "Agents configure a repository-local identity only, and must not alter the user's global Git configuration."
+    }
+  ],
+
+  "sandbox": {
+    "filesystemWrite": "workspace",
+    "networkAccess": true,
+    "networkAccessJustification": "Agents require network access for 'git fetch', 'git push' of their own branches, and GitHub operations through 'gh'."
+  },
+
+  "enforcementNotes": {
+    "authoritative": ".agentpolicy/hooks",
+    "bestEffort": "generated agent configuration",
+    "summary": "Generated agent configuration fails fast on the common literal forms of a prohibited action. The Git hooks evaluate the actual refs being pushed and are therefore phrasing-independent. Neither layer constrains an agent that deliberately bypasses it; server-side branch protection is the only boundary an agent does not control."
+  }
+}

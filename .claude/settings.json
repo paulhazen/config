@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git push -u origin main:*)",
+      "Bash(git push --set-upstream origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Edit(./.agentpolicy/**)",
+      "Write(./.agentpolicy/**)",
+      "Edit(./dev/policy-src/**)",
+      "Write(./dev/policy-src/**)",
+      "Bash(git config --global:*)"
+    ]
+  }
+}
