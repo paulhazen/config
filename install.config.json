@@ -1,7 +1,8 @@
 {
 	"_documentation": {
 		"purpose": "Selects which packages and setup components the install scripts (setup-win.ps1, setup-mac.sh) install. Edit this file before running an installer.",
-		"components": "Set a component to false to skip it. A missing key defaults to true, so this file only needs to list what you want turned off. If this file is missing entirely, everything installs.",
+		"defaults": "The committed defaults encode the repo owner's preferences: Windows-centric, VS Code as editor (no Neovim config), no GPG/commit-signing machinery, standard OpenSSH agent, Go/Node/Python toolchains, oh-my-posh prompt with fzf keybindings but no eza/bat aliases, and none of the original author's personal apps. Note the tracked .zshrc still requires gnupg, so on a Mac without it validation rejects this config; re-enable gpg and remove the gpg4win exclusion there.",
+		"components": "Set a component to false to skip it. A missing key defaults to true, so deleting this file installs everything.",
 		"packages": "packages.exclude lists package names to skip. Names match the 'name' field (or the bare string) of entries in packages.json, including admin_packages and mac_extras entries.",
 		"component_reference": {
 			"developer_mode": "Windows admin phase: machine-wide execution policy and the Developer Mode registry key. The symlink components below require Developer Mode or elevation.",
@@ -14,7 +15,8 @@
 			"packages": "scoop/Homebrew package installation, including bucket adds and the Homebrew bootstrap itself.",
 			"go": "Go toolchain (goup on Windows, goenv on macOS) plus golangci-lint and staticcheck.",
 			"terminal": "Windows Terminal defaults: pwsh profile, MesloLGM Nerd Font, bar cursor.",
-			"shell": "Shell profile. Windows: pwsh profile rewrite (oh-my-posh, posh-git, PSFzf, eza/bat aliases). macOS: oh-my-zsh install and the ~/.zshrc symlink.",
+			"shell": "Shell profile. Windows: managed pwsh profile block (oh-my-posh, posh-git, PSFzf keybindings). macOS: oh-my-zsh install and the ~/.zshrc symlink.",
+			"cli_aliases": "Windows: aliases ls/ll/la/tree to eza and cat to bat inside the managed profile block. The tools themselves install with the package set regardless.",
 			"node": "corepack install and enable via npm.",
 			"repo_remote": "Windows: re-points this repository's origin remote at the $DepotURL defined in setup-win.ps1.",
 			"git_tools_cleanup": "Windows: deletes vim.exe and gpg.exe from the Git for Windows install so scoop's neovim and gpg4win win on PATH."
@@ -22,21 +24,37 @@
 	},
 	"components": {
 		"developer_mode": true,
-		"nvim": true,
+		"nvim": false,
 		"git": true,
 		"ssh": true,
-		"gpg": true,
+		"gpg": false,
 		"claude": true,
 		"vscode": true,
 		"packages": true,
 		"go": true,
 		"terminal": true,
 		"shell": true,
+		"cli_aliases": false,
 		"node": true,
-		"repo_remote": true,
-		"git_tools_cleanup": true
+		"repo_remote": false,
+		"git_tools_cleanup": false
 	},
 	"packages": {
-		"exclude": []
+		"exclude": [
+			"gnucash",
+			"winrar",
+			"marktext",
+			"p4v",
+			"yubioath",
+			"openvpn",
+			"dicklesworthstone/bv",
+			"mendsley/bd",
+			"alacritty",
+			"dotnet-sdk",
+			"versions/beyondcompare4",
+			"neovim",
+			"neovide",
+			"gpg4win"
+		]
 	}
 }

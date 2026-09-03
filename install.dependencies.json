@@ -17,13 +17,15 @@
 		"go",
 		"terminal",
 		"shell",
+		"cli_aliases",
 		"node",
 		"repo_remote",
 		"git_tools_cleanup"
 	],
 	"windows": {
 		"components": {
-			"shell": { "packages": ["pwsh", "oh-my-posh", "eza", "bat", "fzf"] },
+			"shell": { "packages": ["pwsh", "oh-my-posh", "fzf"] },
+			"cli_aliases": { "packages": ["eza", "bat"], "components": ["shell"] },
 			"terminal": { "packages": ["pwsh"], "components": ["shell"] },
 			"node": { "packages": ["nodejs"] },
 			"go": { "packages": ["git"] },

@@ -415,20 +415,29 @@ if (Test-Component 'shell') {
 		'',
 		'# fzf integration',
 		'Import-Module PSFzf',
-		"Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'",
-		'',
-		'# eza aliases',
-		'Remove-Alias ls -Force -ErrorAction SilentlyContinue',
-		'Set-Alias -Name ls -Value eza',
-		'function ll { eza -l @args }',
-		'function la { eza -la @args }',
-		'function tree { eza --tree @args }',
-		'',
-		'# bat alias',
-		'Remove-Alias cat -Force -ErrorAction SilentlyContinue',
-		'function cat { bat --plain @args }',
-		$managedEnd
+		"Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'"
 	)
+
+	# Aliasing ls/cat over to eza/bat is its own component: the tools install
+	# with the package set either way, but only replace the classic commands
+	# when cli_aliases is enabled.
+	if (Test-Component 'cli_aliases') {
+		$managedLines += @(
+			'',
+			'# eza aliases',
+			'Remove-Alias ls -Force -ErrorAction SilentlyContinue',
+			'Set-Alias -Name ls -Value eza',
+			'function ll { eza -l @args }',
+			'function la { eza -la @args }',
+			'function tree { eza --tree @args }',
+			'',
+			'# bat alias',
+			'Remove-Alias cat -Force -ErrorAction SilentlyContinue',
+			'function cat { bat --plain @args }'
+		)
+	}
+
+	$managedLines += $managedEnd
 
 	$profileLines = @()
 	if (Test-Path -Path $profilePath) {
