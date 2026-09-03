@@ -6,7 +6,7 @@
 		"component_reference": {
 			"developer_mode": "Windows admin phase: machine-wide execution policy and the Developer Mode registry key. The symlink components below require Developer Mode or elevation.",
 			"nvim": "Neovim config symlink (Windows: %LOCALAPPDATA%\\nvim, macOS: ~/.config/nvim).",
-			"git": "~/.gitconfig and per-OS include symlinks; macOS also runs 'git lfs install'.",
+			"git": "~/.gitconfig and per-OS include symlinks; macOS also runs 'git lfs install'. Also prompts once for user.name/user.email/signing and writes them to ~/.gitconfig-user.",
 			"ssh": "Replaces ~/.ssh/config with a symlink to ssh_config.",
 			"gpg": "GPG and gpg-agent configuration; Windows also registers the gpg-connect-agent logon task.",
 			"claude": "Claude Code: statusline symlink, installer, and statusLine setting (Windows).",

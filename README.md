@@ -19,7 +19,8 @@ Windows, macOS, and Linux.
 | `setup-mac.sh` | macOS bootstrap (Homebrew, oh-my-zsh, goenv, symlinks, GPG) | run directly |
 | `setup.sh` | Linux bootstrap (vim, i3, fonts, GPG) — **stale, see below** | run directly |
 | `packages.json` | Shared package manifest (scoop names, with `brew`/`brew_cask` mappings and `mac_extras`) | both installers |
-| `.gitconfig` | Core Git config: identity, aliases, LFS, commit signing | Windows admin phase, macOS, Linux |
+| `install.config.json` | Selects which components and packages the installers actually install | read by Windows + macOS installers |
+| `.gitconfig` | Core Git config: aliases, LFS (identity/signing live in generated `~/.gitconfig-user`) | Windows admin phase, macOS, Linux |
 | `.gitconfig-windows` | Windows-only Git config: GPG path, Beyond Compare diff/merge | Windows admin phase (included from `.gitconfig`) |
 | `.gitconfig-mac` | macOS-only Git config: LFS, Beyond Compare diff/merge | macOS (included from `.gitconfig`) |
 | `ssh_config` | Becomes your entire `~/.ssh/config` | all three |
@@ -31,6 +32,21 @@ Windows, macOS, and Linux.
 | `.gemrc`, `.hgrc`, `.editorconfig`, `oh-my-opencode.json` | Ruby gems, Mercurial, editor defaults, opencode Go settings | `.gemrc`: Linux; the rest are not installed by any script |
 | `.agentpolicy/`, `AGENTS.md`, `.claude/settings.json` | Centrally managed agent policy for AI coding agents (see `AGENTS.md`) | `./.agentpolicy/sync.ps1` |
 | `test.txt` | Empty leftover file; safe to delete | — |
+
+## Choosing what to install
+
+`install.config.json` at the repo root controls what the Windows and macOS
+installers do. `components` holds per-feature booleans (a missing key defaults
+to `true`, and a missing file installs everything), and `packages.exclude`
+lists package names from `packages.json` to skip. Each component is described
+in the file's own `_documentation.component_reference`. Edit it before running
+an installer — it is the supported way to opt out of the personal package
+choices and surprising behaviors listed later in this document.
+
+The installers also prompt for values that are yours rather than the repo's:
+Git `user.name`, `user.email`, and whether to GPG-sign commits. Answers are
+written once to `~/.gitconfig-user` (included by the symlinked `.gitconfig`,
+never tracked by this repo); delete that file to be prompted again.
 
 ## What installation does
 
@@ -112,7 +128,7 @@ running an installer.
 
 | File | Setting | Current value | Action |
 |---|---|---|---|
-| `.gitconfig` | `[user] name` / `email` | Paul Hazen / `paul-hazen@live.com` | Already updated to Paul, but note it is a **personal** email — change if this machine should commit with a work identity. |
+| `.gitconfig` | `[user] name` / `email` | prompted at install time | The installers write your answers to `~/.gitconfig-user`; nothing personal remains in the tracked file. Edit `~/.gitconfig-user` to change identity later. |
 | `.hgrc` | `[ui] username` | `Matthew Endsley <mendsley@gmail.com>` | The original author's Mercurial identity. Change it or delete the file — no setup script installs it anyway. |
 | `setup-win.ps1` | `$DepotURL` (top of script) | `git@github.com:paulhazen/config` | The script force-replaces this repo's `origin` with this URL. Make sure it points at **your** fork before running. |
 
@@ -123,7 +139,7 @@ The whole config assumes the original author's **GPG-key-backed workflow**
 
 | File | Setting | Why it may not be portable |
 |---|---|---|
-| `.gitconfig` | `[commit] gpgsign = true` | Every commit is signed. **Commits fail** until you have a GPG key configured. Either create/import your own key or set `gpgsign = false`. |
+| `.gitconfig` | `[commit] gpgsign` | Prompted at install time (default: no) and written to `~/.gitconfig-user`. Answer yes only once you have a GPG key configured, or commits fail. |
 | `.gitconfig-windows` | `[gpg] program = ~/scoop/apps/gpg4win/current/GnuPG/bin/gpg.exe` | Assumes gpg4win installed via scoop at that exact path. |
 | `.zshrc` (macOS) | `SSH_AUTH_SOCK` from `gpgconf`, `gpg-connect-agent /bye` | gpg-agent replaces your SSH agent on every shell start. If you use plain `ssh-agent`, 1Password, or Keychain-based SSH, remove this block. |
 | `setup-win.ps1` / `setup.sh` / `setup-mac.sh` | gpg-agent config, logon task, gnome-keyring SSH disable | Same workflow assumption on each OS. |

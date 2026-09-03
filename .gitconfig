@@ -1,6 +1,5 @@
-[user]
-	name = Paul Hazen
-	email = paul-hazen@live.com
+# User identity and commit signing live in ~/.gitconfig-user, which the setup
+# scripts generate by prompting. It is intentionally not tracked by this repo.
 [init]
 	defaultBranch = main
 [color]
@@ -51,10 +50,10 @@
 [credential "https://lfscache.office.playeveryware.com"]
 	provider = github
 [commit]
-	gpgsign = true
 	cleanup = scissors
 
 [include]
+	path = ~/.gitconfig-user
 	path = ~/.gitconfig-windows
 	path = ~/.gitconfig-mac
 [filter "lfs"]
