@@ -8,8 +8,9 @@ Windows, macOS, and Linux.
 > to the original author's environment. Read
 > [Values to change for your environment](#values-to-change-for-your-environment)
 > before running any setup script — the scripts are **destructive by design**
-> (they delete and replace existing dotfiles, rewrite your PowerShell profile
-> and Windows Terminal settings, and re-point this repo's `origin` remote).
+> (they delete and replace existing dotfiles, rewrite your Windows Terminal
+> settings, manage a block of your PowerShell profile, and re-point this
+> repo's `origin` remote).
 
 ## Repository layout
 
@@ -74,11 +75,12 @@ Then the **user phase**:
    the user `PATH`, and installs `golangci-lint` and `staticcheck`.
 8. **Rewrites Windows Terminal settings**: default profile becomes PowerShell 7
    (`pwsh`), default font becomes "MesloLGM Nerd Font" 10pt, bar cursor.
-9. Installs the Meslo Nerd Font, posh-git, and PSFzf, and **rewrites your pwsh
-   profile** (`$PROFILE.CurrentUserCurrentHost`): oh-my-posh with the
-   `multiverse-neon` theme, fzf keybindings (`Ctrl+t`, `Ctrl+r`), and aliases
-   that replace `ls`/`ll`/`la`/`tree` with `eza` and `cat` with `bat`.
-   Existing profile lines matching those tools are stripped.
+9. Installs the Meslo Nerd Font, posh-git, and PSFzf, and **amends your pwsh
+   profile** (`$PROFILE.CurrentUserCurrentHost`) with a marker-delimited
+   managed block: oh-my-posh with the `multiverse-neon` theme, fzf keybindings
+   (`Ctrl+t`, `Ctrl+r`), and aliases that replace `ls`/`ll`/`la`/`tree` with
+   `eza` and `cat` with `bat`. Content outside the markers is preserved on
+   every run; only the managed block is rewritten.
 10. Enables corepack (npm), installs Claude Code if missing, and points the
     Claude Code `statusLine` setting at `claude/statusline.py` (invoked with
     `python`, which must be on `PATH`).
@@ -174,7 +176,8 @@ Things the original author uses that you may not want installed:
 ### Look-and-feel choices
 
 - `setup-win.ps1` forces Windows Terminal to pwsh + MesloLGM Nerd Font and
-  rewrites your pwsh profile (oh-my-posh `multiverse-neon`, eza/bat aliases).
+  manages a block of your pwsh profile (oh-my-posh `multiverse-neon`, eza/bat
+  aliases); anything you add outside the marked block is left alone.
 - `.zshrc` hardcodes Apple Silicon Homebrew paths (`/opt/homebrew/...`) —
   Intel Macs use `/usr/local` and will need edits. Theme is `af-magic`;
   `EDITOR=nvim` (Windows sets `EDITOR=code` instead).

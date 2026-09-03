@@ -57,6 +57,38 @@ if ($configProblems.Count -gt 0) {
 	Write-Error "install.config.json is not a supported configuration; nothing was installed."
 }
 
+# Computes new profile content: replaces the existing managed block when the
+# markers are present, otherwise appends one. Everything outside the markers
+# is preserved, so personal profile customizations survive re-runs.
+function Update-ProfileManagedBlock {
+	param(
+		[string[]]$ExistingLines,
+		[string[]]$ManagedLines,
+		[string]$BeginMarker,
+		[string]$EndMarker
+	)
+
+	$existing = @($ExistingLines)
+	$beginIndex = [array]::IndexOf($existing, $BeginMarker)
+	$endIndex = [array]::IndexOf($existing, $EndMarker)
+
+	if ($beginIndex -ge 0 -and $endIndex -ge $beginIndex) {
+		$before = @()
+		if ($beginIndex -gt 0) { $before = $existing[0..($beginIndex - 1)] }
+		$after = @()
+		if ($endIndex -lt ($existing.Count - 1)) { $after = $existing[($endIndex + 1)..($existing.Count - 1)] }
+		return @($before) + @($ManagedLines) + @($after)
+	}
+
+	# No markers: a fresh profile, or one written by the old replace-style
+	# setup. Drop exact copies of lines the managed block re-adds; keep
+	# everything else.
+	$generated = @($ManagedLines | Where-Object { $_ -ne '' -and $_ -ne $BeginMarker -and $_ -ne $EndMarker })
+	$kept = @($existing | Where-Object { $generated -notcontains $_ })
+	if ($kept.Count -gt 0) { $kept += '' }
+	return @($kept) + @($ManagedLines)
+}
+
 # Check if we're running as administrator
 function Test-Administrator {
 	$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -363,9 +395,6 @@ if (Test-Component 'shell') {
 	pwsh -Command 'Install-Module posh-git -Scope CurrentUser -Force -Confirm:$false -AllowClobber'
 	pwsh -Command 'Install-Module PSFzf -Scope CurrentUser -Force -Confirm:$false -AllowClobber'
 
-	$poshGitCommand = "Import-Module posh-git"
-	$ompCommand = "oh-my-posh init pwsh --config `"`$env:POSH_THEMES_PATH\multiverse-neon.omp.json`" | Invoke-Expression"
-
 	$profilePath =  pwsh -Command 'Write-Host $PROFILE.CurrentUserCurrentHost'
 	$profileDir = Split-Path -Path $profilePath -Parent
 
@@ -373,41 +402,46 @@ if (Test-Component 'shell') {
 		New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 	}
 
-	$profileContent = @("")
+	# The profile is amended, not replaced: only the block between these
+	# markers belongs to this script, and content outside them is preserved.
+	$managedBegin = '# >>> managed by config repo setup-win.ps1 >>>'
+	$managedEnd = '# <<< managed by config repo setup-win.ps1 <<<'
+	$managedLines = @(
+		$managedBegin,
+		'# This block is rewritten by setup-win.ps1 on every run.',
+		'# Put personal customizations outside the markers.',
+		'oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\multiverse-neon.omp.json" | Invoke-Expression',
+		'Import-Module posh-git',
+		'',
+		'# fzf integration',
+		'Import-Module PSFzf',
+		"Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'",
+		'',
+		'# eza aliases',
+		'Remove-Alias ls -Force -ErrorAction SilentlyContinue',
+		'Set-Alias -Name ls -Value eza',
+		'function ll { eza -l @args }',
+		'function la { eza -la @args }',
+		'function tree { eza --tree @args }',
+		'',
+		'# bat alias',
+		'Remove-Alias cat -Force -ErrorAction SilentlyContinue',
+		'function cat { bat --plain @args }',
+		$managedEnd
+	)
+
+	$profileLines = @()
 	if (Test-Path -Path $profilePath) {
-		$profileContent = Get-Content -Path $profilePath -Raw `
-			| Where-Object { $_ -notmatch 'oh-my-posh init pwsh' } `
-			| Where-Object { $_ -notmatch 'posh-git' } `
-			| Where-Object { $_ -notmatch 'PSFzf' } `
-			| Where-Object { $_ -notmatch 'Set-PsFzfOption' } `
-			| Where-Object { $_ -notmatch '\beza\b' } `
-			| Where-Object { $_ -notmatch '\bbat\b' } `
-			;
+		$profileLines = @(Get-Content -Path $profilePath)
 	}
 
-	$profileContent += "$ompCommand`n"
-	$profileContent += "$poshGitCommand`n"
+	$newProfileLines = Update-ProfileManagedBlock `
+		-ExistingLines $profileLines `
+		-ManagedLines $managedLines `
+		-BeginMarker $managedBegin `
+		-EndMarker $managedEnd
 
-	$fzfEzaBatBlock = @"
-
-# fzf integration
-Import-Module PSFzf
-Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
-
-# eza aliases
-Remove-Alias ls -Force -ErrorAction SilentlyContinue
-Set-Alias -Name ls -Value eza
-function ll { eza -l @args }
-function la { eza -la @args }
-function tree { eza --tree @args }
-
-# bat alias
-Remove-Alias cat -Force -ErrorAction SilentlyContinue
-function cat { bat --plain @args }
-"@
-	$profileContent += "$fzfEzaBatBlock`n"
-
-	$profileContent | Set-Content -Path $profilePath -Encoding UTF8
+	Set-Content -Path $profilePath -Value $newProfileLines -Encoding UTF8
 }
 
 # install corepack
