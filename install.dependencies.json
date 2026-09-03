@@ -1,0 +1,68 @@
+{
+	"_documentation": {
+		"purpose": "Declares what each install component needs in order to work, so the installers can reject an unsupported install.config.json up front instead of failing (or producing a broken shell) partway through.",
+		"known_components": "The complete set of component names the installers understand. A key in install.config.json outside this list is a typo and is rejected.",
+		"components": "Per-OS map of component -> requirements. 'packages' lists packages.json names the component needs at runtime; 'components' lists other components it needs enabled. A required package is satisfied if it will be installed (the 'packages' component is enabled and the name is not excluded) or if it is already present on the system per package_checks.",
+		"package_checks": "How to detect that a required package is already installed when the installer will not be installing it: 'command' is looked up on PATH, 'file' is an absolute path that must exist."
+	},
+	"known_components": [
+		"developer_mode",
+		"nvim",
+		"git",
+		"ssh",
+		"gpg",
+		"claude",
+		"vscode",
+		"packages",
+		"go",
+		"terminal",
+		"shell",
+		"node",
+		"repo_remote",
+		"git_tools_cleanup"
+	],
+	"windows": {
+		"components": {
+			"shell": { "packages": ["pwsh", "oh-my-posh", "eza", "bat", "fzf"] },
+			"terminal": { "packages": ["pwsh"], "components": ["shell"] },
+			"node": { "packages": ["nodejs"] },
+			"go": { "packages": ["git"] },
+			"claude": { "packages": ["git", "python"] },
+			"gpg": { "packages": ["gpg4win"] },
+			"repo_remote": { "packages": ["git"] },
+			"nvim": { "packages": ["neovim", "git"] }
+		},
+		"package_checks": {
+			"pwsh": { "command": "pwsh" },
+			"oh-my-posh": { "command": "oh-my-posh" },
+			"eza": { "command": "eza" },
+			"bat": { "command": "bat" },
+			"fzf": { "command": "fzf" },
+			"nodejs": { "command": "npm" },
+			"git": { "command": "git" },
+			"python": { "command": "python" },
+			"gpg4win": { "command": "gpg-connect-agent" },
+			"neovim": { "command": "nvim" }
+		}
+	},
+	"mac": {
+		"components": {
+			"shell": { "packages": ["eza", "bat", "zsh-autosuggestions", "zsh-syntax-highlighting", "gpg4win", "goenv"] },
+			"go": { "packages": ["goenv"] },
+			"git": { "packages": ["git-lfs"] },
+			"nvim": { "packages": ["neovim"] },
+			"gpg": { "packages": ["gpg4win", "pinentry-mac"] }
+		},
+		"package_checks": {
+			"eza": { "command": "eza" },
+			"bat": { "command": "bat" },
+			"zsh-autosuggestions": { "file": "/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh" },
+			"zsh-syntax-highlighting": { "file": "/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" },
+			"gpg4win": { "command": "gpgconf" },
+			"goenv": { "command": "goenv" },
+			"git-lfs": { "command": "git-lfs" },
+			"neovim": { "command": "nvim" },
+			"pinentry-mac": { "file": "/opt/homebrew/bin/pinentry-mac" }
+		}
+	}
+}

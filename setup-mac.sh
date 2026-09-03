@@ -16,6 +16,13 @@ sys.exit(0 if enabled else 1)
 PYEOF
 }
 
+# Reject an unsupported configuration before anything is changed, so the
+# install never fails (or produces a broken shell) partway through.
+if ! python3 "$ROOT/validate-config.py" "$INSTALL_CONFIG" "$ROOT/install.dependencies.json" "$ROOT/packages.json" mac; then
+    echo "install.config.json is not a supported configuration; nothing was installed." >&2
+    exit 1
+fi
+
 if component_enabled packages; then
     # Install Homebrew if not present
     if ! command -v brew &>/dev/null; then

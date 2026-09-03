@@ -16,7 +16,11 @@ $DepotURL = "git@github.com:paulhazen/config"
 $installConfig = $null
 $installConfigPath = "$PSScriptRoot\install.config.json"
 if (Test-Path -Path $installConfigPath) {
-	$installConfig = Get-Content -Path $installConfigPath -Raw | ConvertFrom-Json
+	try {
+		$installConfig = Get-Content -Path $installConfigPath -Raw | ConvertFrom-Json
+	} catch {
+		Write-Error "install.config.json is not valid JSON: $($_.Exception.Message)"
+	}
 } else {
 	Write-Warning "install.config.json not found; installing all components and packages"
 }
@@ -36,6 +40,21 @@ function Test-Component {
 $excludedPackages = @()
 if ($installConfig -and $installConfig.packages -and $installConfig.packages.exclude) {
 	$excludedPackages = @($installConfig.packages.exclude)
+}
+
+# Reject an unsupported configuration before anything is changed, so the
+# install never fails (or produces a broken shell) partway through.
+. "$PSScriptRoot\validate-config.ps1"
+$configProblems = Get-InstallConfigurationErrors `
+	-InstallConfig $installConfig `
+	-DependenciesPath "$PSScriptRoot\install.dependencies.json" `
+	-PackagesPath "$PSScriptRoot\packages.json" `
+	-Platform 'windows'
+if ($configProblems.Count -gt 0) {
+	foreach ($problem in $configProblems) {
+		Write-Host "CONFIG ERROR: $problem" -ForegroundColor Red
+	}
+	Write-Error "install.config.json is not a supported configuration; nothing was installed."
 }
 
 # Check if we're running as administrator
