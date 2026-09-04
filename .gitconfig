@@ -1,6 +1,5 @@
-[user]
-	name = Matthew Endsley
-	email = mendsley@gmail.com
+# User identity and commit signing live in ~/.gitconfig-user, which the setup
+# scripts generate by prompting. It is intentionally not tracked by this repo.
 [init]
 	defaultBranch = main
 [color]
@@ -51,12 +50,14 @@
 [credential "https://lfscache.office.playeveryware.com"]
 	provider = github
 [commit]
-	gpgsign = true
 	cleanup = scissors
 
 [include]
 	path = ~/.gitconfig-windows
 	path = ~/.gitconfig-mac
+	# Last include wins for duplicate keys, so per-user values in
+	# ~/.gitconfig-user override the per-OS files above.
+	path = ~/.gitconfig-user
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
