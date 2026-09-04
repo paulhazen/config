@@ -22,7 +22,7 @@ Windows, macOS, and Linux.
 | `packages.json` | Shared package manifest (scoop names, with `brew`/`brew_cask` mappings and `mac_extras`) | both installers |
 | `install.config.json` | Selects which components and packages the installers actually install | read by Windows + macOS installers |
 | `.gitconfig` | Core Git config: aliases, LFS (identity/signing live in generated `~/.gitconfig-user`) | Windows admin phase, macOS, Linux |
-| `.gitconfig-windows` | Windows-only Git config: OpenSSH command, VS Code diff/merge | Windows admin phase (included from `.gitconfig`) |
+| `.gitconfig-windows` | Windows-only Git config: OpenSSH command, Beyond Compare diff/merge | Windows admin phase (included from `.gitconfig`) |
 | `.gitconfig-mac` | macOS-only Git config: LFS, Beyond Compare diff/merge | macOS (included from `.gitconfig`) |
 | `ssh_config` | Becomes your entire `~/.ssh/config` | all three |
 | `.zshrc` | zsh config: oh-my-zsh, GPG-agent-as-SSH-agent, eza/bat aliases, goenv | macOS only |
@@ -31,8 +31,6 @@ Windows, macOS, and Linux.
 | `.i3/config`, `.i3status.conf` | i3 window manager config | Linux only |
 | `fonts/` | DroidSansMono and UbuntuMono TTFs | Linux only |
 | `.gemrc`, `.hgrc`, `.editorconfig`, `oh-my-opencode.json` | Ruby gems, Mercurial, editor defaults, opencode Go settings | `.gemrc`: Linux; the rest are not installed by any script |
-| `.agentpolicy/`, `AGENTS.md`, `.claude/settings.json` | Centrally managed agent policy for AI coding agents (see `AGENTS.md`) | `./.agentpolicy/sync.ps1` |
-| `test.txt` | Empty leftover file; safe to delete | — |
 
 ## Choosing what to install
 
@@ -44,12 +42,12 @@ in the file's own `_documentation.component_reference`. Edit it before running
 an installer — it is the supported way to opt in or out of the package
 choices and surprising behaviors listed later in this document.
 
-The committed defaults encode the repo owner's preferences: Windows-centric,
-VS Code as editor (Neovim config off), no GPG/commit-signing machinery
-(standard OpenSSH agent), Go/Node/Python toolchains (no .NET), oh-my-posh
-prompt and fzf keybindings but no eza/bat aliases (`cli_aliases` off), origin
-re-pointing and Git-exe cleanup off, and the original author's personal apps
-excluded. Delete the file to install absolutely everything.
+The tracked file carries the shared defaults (everything on, except the
+opt-in `vscode` component). **Personal preferences belong in
+`install.config.local.json`** — same shape, untracked and gitignored — which
+the installers use instead when it exists. Keep that file in your own overlay
+repo and drop it into the clone; neither person's choices ever touch tracked
+files that way.
 
 The installers also prompt for values that are yours rather than the repo's:
 Git `user.name`, `user.email`, and whether to GPG-sign commits. Answers are
@@ -139,19 +137,19 @@ running an installer.
 |---|---|---|---|
 | `.gitconfig` | `[user] name` / `email` | prompted at install time | The installers write your answers to `~/.gitconfig-user`; nothing personal remains in the tracked file. Edit `~/.gitconfig-user` to change identity later. |
 | `.hgrc` | `[ui] username` | `Matthew Endsley <mendsley@gmail.com>` | The original author's Mercurial identity. Change it or delete the file — no setup script installs it anyway. |
-| `setup-win.ps1` | `$DepotURL` (top of script) | `git@github.com:paulhazen/config` | The script force-replaces this repo's `origin` with this URL. Make sure it points at **your** fork before running. |
+| `setup-win.ps1` | `$DepotURL` (top of script) | `git@github.com:mendsley/config` | When the `repo_remote` component is enabled, the script force-replaces this repo's `origin` with this URL. Disable the component (or change the URL) when working from a fork. |
 
 ### Signing, GPG, and SSH-agent workflow
 
-The original author used a **GPG-key-backed workflow** (likely with a
-YubiKey). The default configuration now disables all of it (`gpg` component
-off, `gpg4win`/`yubioath` excluded) in favor of the standard OpenSSH agent and
-unsigned commits; the machinery remains available behind the `gpg` component:
+The original author uses a **GPG-key-backed workflow** (likely with a
+YubiKey), and the shared defaults keep it. If you use the standard OpenSSH
+agent and unsigned commits instead, disable the `gpg` component and exclude
+`gpg4win`/`yubioath` in your `install.config.local.json`:
 
 | File | Setting | Why it may not be portable |
 |---|---|---|
 | `.gitconfig` | `[commit] gpgsign` | Prompted at install time (default: no) and written to `~/.gitconfig-user`. Answer yes only once you have a GPG key configured, or commits fail. |
-| `.zshrc` (macOS) | `SSH_AUTH_SOCK` from `gpgconf`, `gpg-connect-agent /bye` | gpg-agent replaces your SSH agent on every shell start. Because of this, `setup-mac.sh` on a Mac without gnupg installed rejects the Windows-oriented defaults — re-enable `gpg` and un-exclude `gpg4win` there. |
+| `.zshrc` (macOS) | `SSH_AUTH_SOCK` from `gpgconf`, `gpg-connect-agent /bye` | gpg-agent replaces your SSH agent on every shell start. Because of this, validation rejects a config that excludes `gpg4win` on a Mac without gnupg already installed — the `shell` component genuinely needs it there. |
 | `setup-win.ps1` / `setup.sh` / `setup-mac.sh` | gpg-agent config, logon task, gnome-keyring SSH disable | Same workflow assumption on each OS; all behind the `gpg` component. |
 | `ssh_config` | (nearly empty) | Installed as your **entire** `~/.ssh/config`, deleting whatever you had. Merge your own hosts into this file before running an installer. |
 
@@ -162,13 +160,12 @@ unsigned commits; the machinery remains available behind the `gpg` component:
 | `.gitconfig` | `[credential "https://lfscache.office.playeveryware.com"] provider = github` | PlayEveryWare's internal Git LFS cache. Harmless elsewhere, but remove it if this config leaves the org. |
 | `.gitconfig` | alias `lpm` (`remotes/p4/master..`) | Assumes a git-p4 (Perforce) remote named `p4`. |
 | `.gitconfig` | alias `svu` | git-svn helper against `origin/master`. Dead weight without SVN. |
-| `.gitconfig-windows` | `[merge]`/`[diff] tool = vscode` | Diff/merge via `code --wait`; requires VS Code on PATH (the `vscode` component installs it). |
-| `.gitconfig-mac` | `[merge]`/`[diff] tool = bc3` (`bcomp`) | Still the original Beyond Compare setup (paid license); change if you ever set up a Mac. |
+| `.gitconfig-windows` / `.gitconfig-mac` | `[merge]`/`[diff] tool = bc3` (`BComp.exe` / `bcomp`) | Requires a licensed **Beyond Compare** install. Override per-user in `~/.gitconfig-user` (included last, so it wins) — e.g. VS Code via `code --wait --diff`. |
 
 ### Personal package and tool choices (`packages.json`, `setup-win.ps1`)
 
-Things the original author uses that are now **excluded by the default
-`install.config.json`** (remove them from `packages.exclude` to get them back):
+Things the original author uses that you may not want — add them to
+`packages.exclude` in your `install.config.local.json` to skip them:
 
 - **Personal-bucket tools**: `dicklesworthstone/bv` and `mendsley/bd`. The
   `scoop bucket add` lines for those two buckets still run (harmlessly) when
@@ -197,10 +194,3 @@ Things the original author uses that are now **excluded by the default
 - `.i3/config` / `.i3status.conf` (Linux) assume gnome-settings-daemon paths
   and `wlan0`/`eth0` interface names from an older distro.
 
-## Agent policy
-
-`AGENTS.md`, `.agentpolicy/`, and the `permissions.deny` block of
-`.claude/settings.json` are a centrally managed policy for AI coding agents
-(protected `main`, PR-only merges, Git hooks). They are synchronized with
-`./.agentpolicy/sync.ps1` and must not be hand-edited — see `AGENTS.md` for
-the rules and `.agentpolicy/testing.md` for project-owned testing notes.

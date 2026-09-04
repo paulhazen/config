@@ -2,8 +2,15 @@
 ROOT="${0:A:h}"
 
 # Install configuration: selects which components and packages to install.
-# A missing file or missing key means "install everything".
+# A missing file or missing key means "install everything". A user may keep a
+# personal install.config.local.json (untracked, gitignored) next to the
+# tracked file; when present it is used instead, so personal preferences never
+# touch tracked files.
 INSTALL_CONFIG="$ROOT/install.config.json"
+if [ -f "$ROOT/install.config.local.json" ]; then
+    echo "Using local install configuration override: $ROOT/install.config.local.json"
+    INSTALL_CONFIG="$ROOT/install.config.local.json"
+fi
 
 component_enabled() {
     python3 - "$INSTALL_CONFIG" "$1" <<'PYEOF'

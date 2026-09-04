@@ -9,12 +9,20 @@ $goVersion = "1.26.0"
 $ompTheme = "multiverse-neon"
 
 # The location of this config depot
-$DepotURL = "git@github.com:paulhazen/config"
+$DepotURL = "git@github.com:mendsley/config"
 
 # Install configuration: selects which components and packages to install.
-# A missing file or missing key means "install everything".
+# A missing file or missing key means "install everything". A user may keep a
+# personal install.config.local.json (untracked, gitignored) next to the
+# tracked file; when present it is used instead, so personal preferences never
+# touch tracked files.
 $installConfig = $null
 $installConfigPath = "$PSScriptRoot\install.config.json"
+$localConfigPath = "$PSScriptRoot\install.config.local.json"
+if (Test-Path -Path $localConfigPath) {
+	Write-Host "Using local install configuration override: $localConfigPath"
+	$installConfigPath = $localConfigPath
+}
 if (Test-Path -Path $installConfigPath) {
 	try {
 		$installConfig = Get-Content -Path $installConfigPath -Raw | ConvertFrom-Json
@@ -258,6 +266,8 @@ if (Test-Component 'git') {
 
 if (Test-Component 'vscode') {
 	[System.Environment]::SetEnvironmentVariable('EDITOR', 'code', [System.EnvironmentVariableTarget]::User)
+} else {
+	[System.Environment]::SetEnvironmentVariable('EDITOR', 'nvim', [System.EnvironmentVariableTarget]::User)
 }
 
 if (Test-Component 'packages') {
