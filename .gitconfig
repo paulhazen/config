@@ -53,9 +53,11 @@
 	cleanup = scissors
 
 [include]
-	path = ~/.gitconfig-user
 	path = ~/.gitconfig-windows
 	path = ~/.gitconfig-mac
+	# Last include wins for duplicate keys, so per-user values in
+	# ~/.gitconfig-user override the per-OS files above.
+	path = ~/.gitconfig-user
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
