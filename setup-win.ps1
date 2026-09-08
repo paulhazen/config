@@ -125,6 +125,52 @@ function Get-ScoopDir {
 	return "$env:USERPROFILE\scoop"
 }
 
+# The global app root used by `scoop install --global`, matching scoop's own
+# resolution order: $env:SCOOP_GLOBAL, then global_path from scoop's config
+# file, then the default under ProgramData.
+function Get-ScoopGlobalDir {
+	if ($env:SCOOP_GLOBAL) {
+		return $env:SCOOP_GLOBAL
+	}
+	$scoopConfigPath = "$env:USERPROFILE\.config\scoop\config.json"
+	if (Test-Path -Path $scoopConfigPath) {
+		try {
+			$globalPath = (Get-Content -Path $scoopConfigPath -Raw | ConvertFrom-Json).global_path
+			if ($globalPath) {
+				return $globalPath
+			}
+		} catch {
+			# Unreadable config: fall through to the default root.
+		}
+	}
+	return "$env:ProgramData\scoop"
+}
+
+# Moves a directory, elevating for just the move when this process lacks the
+# rights (the global scoop root under ProgramData is typically admin-owned).
+function Move-ItemMaybeElevated {
+	param(
+		[string]$Path,
+		[string]$Destination
+	)
+	try {
+		Move-Item -LiteralPath $Path -Destination $Destination
+		return
+	} catch {
+		if (Test-Administrator) {
+			# Already elevated, so retrying elevated cannot help.
+			throw
+		}
+		Write-Host "Elevating to move $Path"
+	}
+	$moveCommand = "try { Move-Item -LiteralPath '$Path' -Destination '$Destination' -ErrorAction Stop; exit 0 } catch { exit 1 }"
+	$moveProcess = Start-Process -Wait -PassThru -Verb RunAs powershell.exe `
+		-ArgumentList '-NoProfile', '-Command', $moveCommand
+	if ($moveProcess.ExitCode -ne 0) {
+		throw "Failed to move $Path to $Destination (exit code $($moveProcess.ExitCode))"
+	}
+}
+
 # True only when the scoop command resolves and actually runs. This treats a
 # missing install, a shims directory that fell off PATH, and a root directory
 # left broken by a failed install/uninstall all the same way: not usable.
@@ -166,7 +212,7 @@ function Install-Scoop {
 
 	# Whatever is left at the root now is a broken install (e.g. a failed
 	# uninstall). The installer refuses to run over a non-empty directory, so
-	# move it aside — never delete it — to allow a clean reinstall.
+	# move it aside (never delete it) to allow a clean reinstall.
 	if (Test-Path -Path $scoopDir) {
 		$backupDir = "$scoopDir.broken-$(Get-Date -Format yyyyMMdd-HHmmss)"
 		Write-Warning "scoop at $scoopDir is not functional; moving it to $backupDir and reinstalling"
@@ -175,6 +221,27 @@ function Install-Scoop {
 		} catch {
 			Write-Error ("Could not move the broken scoop directory aside: $($_.Exception.Message). " +
 				"Close any programs running from $scoopDir (or remove it manually) and re-run this script.")
+		}
+	}
+
+	# The installer also refuses to run while the *global* app root (used by
+	# `scoop install --global`, e.g. C:\ProgramData\scoop) is non-empty, even
+	# though that directory is normally healthy data left from a previous
+	# install. Pointing the installer at a different -ScoopGlobalDir is no
+	# better: it would persist that path as global_path in scoop's config.
+	# So move the directory aside for the duration of the install and restore
+	# it afterwards; the globally installed apps come back untouched.
+	$scoopGlobalDir = Get-ScoopGlobalDir
+	$globalStashDir = $null
+	if ((Test-Path -Path $scoopGlobalDir) -and (Test-Path -Path "$scoopGlobalDir\*")) {
+		$globalStashDir = "$scoopGlobalDir.reinstall-$(Get-Date -Format yyyyMMdd-HHmmss)"
+		Write-Host "Temporarily moving $scoopGlobalDir to $globalStashDir so the scoop installer will run"
+		try {
+			Move-ItemMaybeElevated -Path $scoopGlobalDir -Destination $globalStashDir
+		} catch {
+			Write-Error ("Could not move the global scoop directory aside: $($_.Exception.Message). " +
+				"The scoop installer refuses to run while $scoopGlobalDir is non-empty; " +
+				"move or remove it and re-run this script.")
 		}
 	}
 
@@ -198,6 +265,26 @@ function Install-Scoop {
 		}
 	} finally {
 		Remove-Item -Path $installerPath -ErrorAction SilentlyContinue
+
+		# Put the global app root back, whether or not the install succeeded.
+		if ($globalStashDir -and (Test-Path -Path $globalStashDir)) {
+			if (Test-Path -Path "$scoopGlobalDir\*") {
+				Write-Warning ("The scoop installer recreated $scoopGlobalDir; your previous global " +
+					"apps were left at $globalStashDir - merge them back manually.")
+			} else {
+				try {
+					if (Test-Path -Path $scoopGlobalDir) {
+						# Remove the empty recreated directory; moving onto an
+						# existing directory would nest the stash inside it.
+						Remove-Item -LiteralPath $scoopGlobalDir
+					}
+					Move-ItemMaybeElevated -Path $globalStashDir -Destination $scoopGlobalDir
+				} catch {
+					Write-Warning ("Could not restore the global scoop directory: $($_.Exception.Message). " +
+						"Your global apps are intact at $globalStashDir - move it back to $scoopGlobalDir manually.")
+				}
+			}
+		}
 	}
 
 	# The installer adds shims to the user PATH; expose them to this session

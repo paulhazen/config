@@ -79,7 +79,10 @@ Then the **user phase**:
    scoop install is left alone; one that only fell off `PATH` gets its `PATH`
    entry restored; a broken root directory (e.g. from a failed uninstall) is
    moved aside to `scoop.broken-<timestamp>` — never deleted — before a clean
-   reinstall. Bucket adds are skipped for buckets already present.
+   reinstall. A non-empty global app root (`C:\ProgramData\scoop`), which the
+   scoop installer refuses to run over, is moved aside for the install and
+   restored afterwards, keeping globally installed apps. Bucket adds are
+   skipped for buckets already present.
 7. Installs `goup` (pinned version) and Go (pinned version), adds Go paths to
    the user `PATH`, and installs `golangci-lint` and `staticcheck`.
 8. **Rewrites Windows Terminal settings**: default profile becomes PowerShell 7
