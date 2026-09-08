@@ -104,6 +104,134 @@ function Test-Administrator {
 	$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+# Scoop's root directory, matching the resolution order used by get.scoop.sh
+# and scoop itself: $env:SCOOP, then root_path from scoop's config file, then
+# the default under the user profile.
+function Get-ScoopDir {
+	if ($env:SCOOP) {
+		return $env:SCOOP
+	}
+	$scoopConfigPath = "$env:USERPROFILE\.config\scoop\config.json"
+	if (Test-Path -Path $scoopConfigPath) {
+		try {
+			$rootPath = (Get-Content -Path $scoopConfigPath -Raw | ConvertFrom-Json).root_path
+			if ($rootPath) {
+				return $rootPath
+			}
+		} catch {
+			# Unreadable config: fall through to the default root.
+		}
+	}
+	return "$env:USERPROFILE\scoop"
+}
+
+# True only when the scoop command resolves and actually runs. This treats a
+# missing install, a shims directory that fell off PATH, and a root directory
+# left broken by a failed install/uninstall all the same way: not usable.
+function Test-ScoopHealthy {
+	if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+		return $false
+	}
+	try {
+		& scoop help *> $null
+		return $?
+	} catch {
+		return $false
+	}
+}
+
+function Install-Scoop {
+	$scoopDir = Get-ScoopDir
+	$scoopShims = Join-Path $scoopDir 'shims'
+
+	if (Test-ScoopHealthy) {
+		Write-Host "scoop already installed"
+		return
+	}
+
+	# An existing install may only be missing from PATH (the user PATH entry
+	# was lost, or this session predates the install). Restore it and retest
+	# before doing anything more invasive.
+	if (Test-Path -Path (Join-Path $scoopShims 'scoop.ps1')) {
+		Write-Host "Found existing scoop at $scoopDir; restoring its PATH entry"
+		$env:PATH = "$scoopShims;$env:PATH"
+		$userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+		if (@($userPath -split ';') -notcontains $scoopShims) {
+			[Environment]::SetEnvironmentVariable('PATH', "$userPath;$scoopShims", 'User')
+		}
+		if (Test-ScoopHealthy) {
+			return
+		}
+	}
+
+	# Whatever is left at the root now is a broken install (e.g. a failed
+	# uninstall). The installer refuses to run over a non-empty directory, so
+	# move it aside — never delete it — to allow a clean reinstall.
+	if (Test-Path -Path $scoopDir) {
+		$backupDir = "$scoopDir.broken-$(Get-Date -Format yyyyMMdd-HHmmss)"
+		Write-Warning "scoop at $scoopDir is not functional; moving it to $backupDir and reinstalling"
+		try {
+			Move-Item -Path $scoopDir -Destination $backupDir
+		} catch {
+			Write-Error ("Could not move the broken scoop directory aside: $($_.Exception.Message). " +
+				"Close any programs running from $scoopDir (or remove it manually) and re-run this script.")
+		}
+	}
+
+	# Run the installer as a script file in a child process. Piping it into
+	# Invoke-Expression lets its abort path run a bare `break`, which would
+	# silently terminate this entire script; a file invocation aborts with a
+	# real exit code instead, and the child process contains it either way.
+	Write-Host "Installing scoop..."
+	$installerPath = Join-Path $env:TEMP "scoop-installer-$PID.ps1"
+	Invoke-RestMethod -Uri 'https://get.scoop.sh' -OutFile $installerPath
+	try {
+		$installerArgs = @()
+		if (Test-Administrator) {
+			# The installer refuses to run elevated unless told otherwise;
+			# support this script being launched from an admin shell.
+			$installerArgs += '-RunAsAdmin'
+		}
+		& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerPath @installerArgs
+		if ($LASTEXITCODE -ne 0) {
+			Write-Error "The scoop installer failed with exit code $LASTEXITCODE"
+		}
+	} finally {
+		Remove-Item -Path $installerPath -ErrorAction SilentlyContinue
+	}
+
+	# The installer adds shims to the user PATH; expose them to this session
+	# so the scoop calls below (and `scoop which bash` later) resolve.
+	if (@($env:PATH -split ';') -notcontains $scoopShims) {
+		$env:PATH = "$scoopShims;$env:PATH"
+	}
+
+	if (-not (Test-ScoopHealthy)) {
+		Write-Error "scoop is still not usable after installing it; aborting before package installs."
+	}
+}
+
+# Adds a bucket only when it is missing, so re-runs and pre-existing scoop
+# installs don't fail on 'bucket already exists'.
+function Add-ScoopBucket {
+	param(
+		[string]$Name,
+		[string]$Repo
+	)
+	if (Test-Path -Path (Join-Path (Get-ScoopDir) "buckets\$Name")) {
+		Write-Host "scoop bucket '$Name' already added"
+		return
+	}
+	if ($Repo) {
+		scoop bucket add $Name $Repo
+	} else {
+		scoop bucket add $Name
+	}
+	if (!$?) {
+		Write-Warning "Failed to add scoop bucket $Name"
+	}
+}
+
 # Run administrator tasks first
 if (-not (Test-Administrator)) {
 	Write-Host "Elevating to run admin commands..."
@@ -271,19 +399,17 @@ if (Test-Component 'vscode') {
 }
 
 if (Test-Component 'packages') {
-	# Install scoop
-	if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-		Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-	}
+	# Install (or repair) scoop; see Install-Scoop above.
+	Install-Scoop
 
 	$packagesJson = Get-Content -Path "$PSScriptRoot\packages.json" -Raw | ConvertFrom-Json
 	foreach ($bucket in $packagesJson.buckets) {
-		scoop bucket add $bucket
+		Add-ScoopBucket -Name $bucket
 	}
 
 	# Add dicklesworthstone bucket
-	scoop bucket add dicklesworthstone https://github.com/Dicklesworthstone/scoop-bucket
-	scoop bucket add mendsley https://github.com/mendsley/scoop-bucket
+	Add-ScoopBucket -Name dicklesworthstone -Repo https://github.com/Dicklesworthstone/scoop-bucket
+	Add-ScoopBucket -Name mendsley -Repo https://github.com/mendsley/scoop-bucket
 
 	foreach ($package in $packagesJson.packages) {
 		$name = if ($package -is [string]) { $package } else { $package.name }

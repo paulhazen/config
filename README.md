@@ -75,7 +75,11 @@ Then the **user phase**:
 5. Installs VS Code (winget) and sets the user `EDITOR` env var to `code`.
 6. Installs scoop, adds the buckets from `packages.json` **plus two personal
    third-party buckets** (`dicklesworthstone`, `mendsley`), and installs every
-   entry in `packages` (and `admin_packages` globally via gsudo).
+   entry in `packages` (and `admin_packages` globally via gsudo). A working
+   scoop install is left alone; one that only fell off `PATH` gets its `PATH`
+   entry restored; a broken root directory (e.g. from a failed uninstall) is
+   moved aside to `scoop.broken-<timestamp>` — never deleted — before a clean
+   reinstall. Bucket adds are skipped for buckets already present.
 7. Installs `goup` (pinned version) and Go (pinned version), adds Go paths to
    the user `PATH`, and installs `golangci-lint` and `staticcheck`.
 8. **Rewrites Windows Terminal settings**: default profile becomes PowerShell 7
